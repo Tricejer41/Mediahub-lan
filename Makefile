@@ -1,0 +1,1 @@
+.PHONY: be fe dev
