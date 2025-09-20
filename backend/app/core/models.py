@@ -33,5 +33,6 @@ class Episode(Base):
     acodec: Mapped[str | None] = mapped_column(String(64), nullable=True)
     width:  Mapped[int | None] = mapped_column(Integer, nullable=True)
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
-
+    thumb_rel: Mapped[str | None] = mapped_column(String(255), nullable=True)  # <--- nuevo
+    
     season: Mapped["Season"] = relationship(back_populates="episodes")

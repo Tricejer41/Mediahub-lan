@@ -9,6 +9,7 @@ type Episode = {
   duration: number | null
   w: number | null
   h: number | null
+  thumb_rel?: string | null
 }
 type Season = { number: number; episodes: Episode[] }
 type SerieDetail = { id: number; name: string; seasons: Season[] }
@@ -22,6 +23,7 @@ async function fetchSerie(id: string): Promise<SerieDetail> {
 export default async function SeriePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const data = await fetchSerie(id)
+  const BASE = apiBase()
 
   return (
     <main className="min-h-screen bg-neutral-950 text-neutral-100 px-6 py-8">
@@ -43,18 +45,38 @@ export default async function SeriePage({ params }: { params: Promise<{ id: stri
                 <ul className="divide-y divide-neutral-900">
                   {sea.episodes.map((e) => (
                     <li key={e.id} className="px-4 py-3 flex items-center gap-3">
+                      {/* Miniatura episodio */}
+                      <div className="w-28 shrink-0 aspect-video rounded-lg overflow-hidden bg-neutral-800">
+                        {e.thumb_rel ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`${BASE}/static/${e.thumb_rel}`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full grid place-items-center text-xs opacity-60">
+                            Sin imagen
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Número + metadatos */}
                       <span className="w-12 text-right tabular-nums opacity-70">
                         {e.number ?? "–"}
                       </span>
+
                       <div className="flex-1">
-                        <div className="truncate">{e.title ?? e.path.split("/").pop()}</div>
+                        <div className="truncate">
+                          {e.title ?? e.path.split("/").pop()}
+                        </div>
                         <div className="text-xs opacity-60">
                           {e.w && e.h ? `${e.w}×${e.h}` : "Resolución desconocida"}
                           {e.duration ? ` · ${(e.duration / 60).toFixed(1)} min` : ""}
                         </div>
                       </div>
 
-                      {/* Botón Reproducir */}
+                      {/* Reproducir */}
                       <Link
                         href={`/watch/${e.id}`}
                         className="ml-auto text-sm rounded-lg px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 transition"
