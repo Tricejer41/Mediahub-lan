@@ -1,4 +1,8 @@
-import json, re, subprocess, shlex, os
+import os
+import re
+import json
+import shlex
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -15,23 +19,32 @@ RX_XxYY   = re.compile(r"(\d{1,2})x(\d{1,2})")
 RX_TEMP   = re.compile(r"(?:Temporada|Season)[ _-]*(\d{1,2})", re.I)
 
 def guess_season(parts: list[str]) -> int:
-    # busca "Temporada N" o "Season N" en la ruta; si no, 1
+    """Intenta detectar 'Temporada N'/'Season N' en la ruta; si no, 1."""
     for p in reversed(parts):
         m = RX_TEMP.search(p)
-        if m: return int(m.group(1))
+        if m:
+            return int(m.group(1))
     return 1
 
 def guess_episode_number(name: str) -> Optional[int]:
+    """Detecta número de episodio evitando confundir el '4' de .mp4."""
+    # quitar extensión por si hay dígitos en .mp4/.mkv
+    name, _ext = os.path.splitext(name)
+    # patrones tipo S01E02 o 1x02
     for rx in (RX_SXXEYY, RX_XxYY):
         m = rx.search(name)
-        if m: return int(m.group(2))
+        if m:
+            return int(m.group(2))
+    # 'E02', 'EP 12', 'cap-07', etc.
     m = re.search(r"(?:^|[^0-9])(ep|e|cap)[ ._-]?(\d{1,3})(?:[^0-9]|$)", name, re.I)
-    if m: return int(m.group(2))
+    if m:
+        return int(m.group(2))
+    # último número suelto del nombre (fallback)
     nums = re.findall(r"(\d{1,3})", name)
     return int(nums[-1]) if nums else None
 
 def ffprobe_info(path: str) -> dict:
-    # Extrae duración, tamaño, vcodec, acodec, resolución
+    """Extrae duración, tamaño, vcodec, acodec y resolución con ffprobe."""
     cmd = (
         'ffprobe -v error '
         '-select_streams v:0 -show_entries stream=codec_name,width,height '
@@ -59,8 +72,8 @@ def ffprobe_info(path: str) -> dict:
         info["vcodec"] = s0.get("codec_name")
         info["width"]  = s0.get("width")
         info["height"] = s0.get("height")
-    # audio codec (mejor intento rápido)
-    # una segunda pasada ligera: -select_streams a:0
+
+    # audio codec (pasada ligera)
     cmd2 = 'ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of json ' + shlex.quote(path)
     out2 = subprocess.run(cmd2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if out2.returncode == 0:
@@ -75,7 +88,8 @@ def ffprobe_info(path: str) -> dict:
 async def get_or_create_series(session: AsyncSession, name: str) -> Series:
     res = await session.execute(select(Series).where(Series.name == name))
     s = res.scalar_one_or_none()
-    if s: return s
+    if s:
+        return s
     s = Series(name=name)
     session.add(s)
     await session.flush()
@@ -86,19 +100,19 @@ async def get_or_create_season(session: AsyncSession, series: Series, number: in
         select(Season).where(Season.series_id == series.id, Season.number == number)
     )
     sea = res.scalar_one_or_none()
-    if sea: return sea
+    if sea:
+        return sea
     sea = Season(series_id=series.id, number=number)
     session.add(sea)
     await session.flush()
     return sea
 
 async def upsert_episode(session: AsyncSession, season: Season, path: Path, epnum: Optional[int]):
-    # ¿ya existe por path?
+    """Crea o actualiza un episodio por path; corrige número si cambia."""
     res = await session.execute(select(Episode).where(Episode.path == str(path)))
     ep = res.scalar_one_or_none()
     if ep:
-        # actualizar campos básicos si faltan
-        if ep.number is None and epnum is not None:
+        if epnum is not None and ep.number != epnum:
             ep.number = epnum
         return ep
 
@@ -120,6 +134,7 @@ async def upsert_episode(session: AsyncSession, season: Season, path: Path, epnu
     return ep
 
 async def scan_library(session: AsyncSession) -> dict:
+    """Recorre MEDIA_SERIES y crea/actualiza Series/Season/Episode."""
     root = Path(settings.MEDIA_SERIES)
     if not root.exists():
         return {"ok": False, "error": f"No existe {root}"}
@@ -127,33 +142,30 @@ async def scan_library(session: AsyncSession) -> dict:
     created = 0
     updated = 0
 
-    # Estructura esperada: /Anime/<Serie>/[Temporada X]/archivo
+    # Estructura: /Anime/<Serie>/[Temporada X]/archivo
     for series_dir in sorted([p for p in root.iterdir() if p.is_dir()]):
         series = await get_or_create_series(session, series_dir.name)
 
-        for file_or_dir in series_dir.iterdir():
-            # si hay subcarpetas de temporada
-            if file_or_dir.is_dir():
-                season_number = guess_season(file_or_dir.parts)
-                season = await get_or_create_season(session, series, season_number)
-                for video in file_or_dir.rglob("*"):
-                    if video.is_file() and video.suffix.lower() in VIDEO_EXT:
-                        epnum = guess_episode_number(video.name)
-                        before = await session.execute(select(Episode).where(Episode.path == str(video)))
-                        exists = before.scalar_one_or_none()
-                        await upsert_episode(session, season, video, epnum)
-                        created += 0 if exists else 1
-                        updated += 1 if exists else 0
-            else:
-                # archivos directamente bajo la serie => season 1
-                if file_or_dir.is_file() and file_or_dir.suffix.lower() in VIDEO_EXT:
-                    season = await get_or_create_season(session, series, 1)
-                    epnum = guess_episode_number(file_or_dir.name)
-                    before = await session.execute(select(Episode).where(Episode.path == str(file_or_dir)))
-                    exists = before.scalar_one_or_none()
-                    await upsert_episode(session, season, file_or_dir, epnum)
+        # 1) Subcarpetas (temporadas)
+        for sub in [d for d in series_dir.iterdir() if d.is_dir()]:
+            season_number = guess_season(list(sub.parts))
+            season = await get_or_create_season(session, series, season_number)
+            for video in sub.rglob("*"):
+                if video.is_file() and video.suffix.lower() in VIDEO_EXT:
+                    epnum = guess_episode_number(video.stem)
+                    exists = (await session.execute(select(Episode).where(Episode.path == str(video)))).scalar_one_or_none()
+                    await upsert_episode(session, season, video, epnum)
                     created += 0 if exists else 1
                     updated += 1 if exists else 0
+
+        # 2) Archivos sueltos bajo la serie => temporada 1
+        for f in [f for f in series_dir.iterdir() if f.is_file() and f.suffix.lower() in VIDEO_EXT]:
+            season = await get_or_create_season(session, series, 1)
+            epnum = guess_episode_number(f.stem)
+            exists = (await session.execute(select(Episode).where(Episode.path == str(f)))).scalar_one_or_none()
+            await upsert_episode(session, season, f, epnum)
+            created += 0 if exists else 1
+            updated += 1 if exists else 0
 
     await session.commit()
     return {"ok": True, "created": created, "updated": updated}
