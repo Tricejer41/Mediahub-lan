@@ -6,6 +6,7 @@ from app.api.scan import router as scan_router
 from app.api.catalog import router as catalog_router
 from app.api.stream import router as stream_router
 from app.api.thumbs import router as thumbs_router
+from app.api.transcode import router as transcode_router
 
 app = FastAPI(title="MediaHub LAN (Anime only)")
 
@@ -26,3 +27,4 @@ app.include_router(scan_router)
 app.include_router(catalog_router)
 app.include_router(stream_router)
 app.include_router(thumbs_router)
+app.include_router(transcode_router)
