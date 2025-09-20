@@ -53,7 +53,14 @@ export default async function SeriePage({ params }: { params: Promise<{ id: stri
                           {e.duration ? ` · ${(e.duration / 60).toFixed(1)} min` : ""}
                         </div>
                       </div>
-                      {/* futuro: botón reproducir */}
+
+                      {/* Botón Reproducir */}
+                      <Link
+                        href={`/watch/${e.id}`}
+                        className="ml-auto text-sm rounded-lg px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 transition"
+                      >
+                        ▶ Reproducir
+                      </Link>
                     </li>
                   ))}
                 </ul>
