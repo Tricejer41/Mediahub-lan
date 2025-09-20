@@ -9,3 +9,4 @@ backend/.venv/
 .venv/
 frontend/.next/
 frontend/.turbo/
+backend/mediahub.db
