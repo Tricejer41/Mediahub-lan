@@ -13,6 +13,7 @@ router = APIRouter(prefix="/api/stream", tags=["stream"])
 
 CHUNK_SIZE = 1024 * 1024  # 1 MiB
 
+
 def open_file_range(path: str, start: int, end: int):
     with open(path, "rb") as f:
         f.seek(start)
@@ -23,6 +24,7 @@ def open_file_range(path: str, start: int, end: int):
                 break
             remaining -= len(chunk)
             yield chunk
+
 
 @router.get("/{episode_id}")
 async def stream_episode(

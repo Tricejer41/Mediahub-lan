@@ -15,8 +15,9 @@ from app.core.models import Series, Season, Episode
 VIDEO_EXT = {".mp4", ".mkv", ".m4v"}
 
 RX_SXXEYY = re.compile(r"[Ss](\d{1,2})[ ._-]*[Ee](\d{1,2})")
-RX_XxYY   = re.compile(r"(\d{1,2})x(\d{1,2})")
-RX_TEMP   = re.compile(r"(?:Temporada|Season)[ _-]*(\d{1,2})", re.I)
+RX_XxYY = re.compile(r"(\d{1,2})x(\d{1,2})")
+RX_TEMP = re.compile(r"(?:Temporada|Season)[ _-]*(\d{1,2})", re.I)
+
 
 def guess_season(parts: list[str]) -> int:
     """Intenta detectar 'Temporada N'/'Season N' en la ruta; si no, 1."""
@@ -25,6 +26,7 @@ def guess_season(parts: list[str]) -> int:
         if m:
             return int(m.group(1))
     return 1
+
 
 def guess_episode_number(name: str) -> Optional[int]:
     """Detecta número de episodio evitando confundir el '4' de .mp4."""
@@ -43,15 +45,18 @@ def guess_episode_number(name: str) -> Optional[int]:
     nums = re.findall(r"(\d{1,3})", name)
     return int(nums[-1]) if nums else None
 
+
 def ffprobe_info(path: str) -> dict:
     """Extrae duración, tamaño, vcodec, acodec y resolución con ffprobe."""
     cmd = (
-        'ffprobe -v error '
-        '-select_streams v:0 -show_entries stream=codec_name,width,height '
-        '-show_entries format=duration,size '
-        '-of json ' + shlex.quote(path)
+        "ffprobe -v error "
+        "-select_streams v:0 -show_entries stream=codec_name,width,height "
+        "-show_entries format=duration,size "
+        "-of json " + shlex.quote(path)
     )
-    out = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    out = subprocess.run(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     if out.returncode != 0:
         return {}
     try:
@@ -59,8 +64,12 @@ def ffprobe_info(path: str) -> dict:
     except json.JSONDecodeError:
         return {}
     info = {
-        "duration": float(data.get("format", {}).get("duration", 0)) if data.get("format") else None,
-        "size": int(data.get("format", {}).get("size", 0)) if data.get("format") else None,
+        "duration": float(data.get("format", {}).get("duration", 0))
+        if data.get("format")
+        else None,
+        "size": int(data.get("format", {}).get("size", 0))
+        if data.get("format")
+        else None,
         "vcodec": None,
         "acodec": None,
         "width": None,
@@ -70,12 +79,17 @@ def ffprobe_info(path: str) -> dict:
     if streams:
         s0 = streams[0]
         info["vcodec"] = s0.get("codec_name")
-        info["width"]  = s0.get("width")
+        info["width"] = s0.get("width")
         info["height"] = s0.get("height")
 
     # audio codec (pasada ligera)
-    cmd2 = 'ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of json ' + shlex.quote(path)
-    out2 = subprocess.run(cmd2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    cmd2 = (
+        "ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of json "
+        + shlex.quote(path)
+    )
+    out2 = subprocess.run(
+        cmd2, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     if out2.returncode == 0:
         try:
             data2 = json.loads(out2.stdout)
@@ -84,6 +98,7 @@ def ffprobe_info(path: str) -> dict:
         except json.JSONDecodeError:
             pass
     return info
+
 
 async def get_or_create_series(session: AsyncSession, name: str) -> Series:
     res = await session.execute(select(Series).where(Series.name == name))
@@ -95,7 +110,10 @@ async def get_or_create_series(session: AsyncSession, name: str) -> Series:
     await session.flush()
     return s
 
-async def get_or_create_season(session: AsyncSession, series: Series, number: int) -> Season:
+
+async def get_or_create_season(
+    session: AsyncSession, series: Series, number: int
+) -> Season:
     res = await session.execute(
         select(Season).where(Season.series_id == series.id, Season.number == number)
     )
@@ -107,7 +125,10 @@ async def get_or_create_season(session: AsyncSession, series: Series, number: in
     await session.flush()
     return sea
 
-async def upsert_episode(session: AsyncSession, season: Season, path: Path, epnum: Optional[int]):
+
+async def upsert_episode(
+    session: AsyncSession, season: Season, path: Path, epnum: Optional[int]
+):
     """Crea o actualiza un episodio por path; corrige número si cambia."""
     res = await session.execute(select(Episode).where(Episode.path == str(path)))
     ep = res.scalar_one_or_none()
@@ -133,6 +154,7 @@ async def upsert_episode(session: AsyncSession, season: Season, path: Path, epnu
     session.add(ep)
     return ep
 
+
 async def scan_library(session: AsyncSession) -> dict:
     """Recorre MEDIA_SERIES y crea/actualiza Series/Season/Episode."""
     root = Path(settings.MEDIA_SERIES)
@@ -153,16 +175,26 @@ async def scan_library(session: AsyncSession) -> dict:
             for video in sub.rglob("*"):
                 if video.is_file() and video.suffix.lower() in VIDEO_EXT:
                     epnum = guess_episode_number(video.stem)
-                    exists = (await session.execute(select(Episode).where(Episode.path == str(video)))).scalar_one_or_none()
+                    exists = (
+                        await session.execute(
+                            select(Episode).where(Episode.path == str(video))
+                        )
+                    ).scalar_one_or_none()
                     await upsert_episode(session, season, video, epnum)
                     created += 0 if exists else 1
                     updated += 1 if exists else 0
 
         # 2) Archivos sueltos bajo la serie => temporada 1
-        for f in [f for f in series_dir.iterdir() if f.is_file() and f.suffix.lower() in VIDEO_EXT]:
+        for f in [
+            f
+            for f in series_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in VIDEO_EXT
+        ]:
             season = await get_or_create_season(session, series, 1)
             epnum = guess_episode_number(f.stem)
-            exists = (await session.execute(select(Episode).where(Episode.path == str(f)))).scalar_one_or_none()
+            exists = (
+                await session.execute(select(Episode).where(Episode.path == str(f)))
+            ).scalar_one_or_none()
             await upsert_episode(session, season, f, epnum)
             created += 0 if exists else 1
             updated += 1 if exists else 0

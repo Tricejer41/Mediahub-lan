@@ -1,4 +1,7 @@
-import os, shlex, subprocess, hashlib
+import os
+import shlex
+import subprocess
+import hashlib
 from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,10 +11,12 @@ from app.core.models import Episode
 THUMBS_DIR = Path("media/thumbs")
 THUMBS_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def thumb_name_for(path: str) -> str:
     # Nombre determinista según ruta del fichero origen
     h = hashlib.sha1(path.encode("utf-8")).hexdigest()[:16]
     return f"{h}.jpg"
+
 
 def ensure_thumbnail(src_path: str) -> str | None:
     """
@@ -29,13 +34,16 @@ def ensure_thumbnail(src_path: str) -> str | None:
 
     # ffmpeg: coger frame en 10s, escalar manteniendo aspecto, calidad buena
     cmd = (
-        f'ffmpeg -v error -ss 00:00:10 -i {shlex.quote(src_path)} -frames:v 1 '
-        f'-vf "scale=\'min(480,iw)\':-2" -q:v 3 {shlex.quote(str(out_abs))} -y'
+        f"ffmpeg -v error -ss 00:00:10 -i {shlex.quote(src_path)} -frames:v 1 "
+        f"-vf \"scale='min(480,iw)':-2\" -q:v 3 {shlex.quote(str(out_abs))} -y"
     )
-    proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.run(
+        cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    )
     if proc.returncode == 0 and out_abs.exists():
         return out_rel
     return None
+
 
 async def build_missing_thumbs(session: AsyncSession) -> dict:
     """
@@ -44,7 +52,11 @@ async def build_missing_thumbs(session: AsyncSession) -> dict:
     total = 0
     created = 0
 
-    rows = (await session.execute(select(Episode).where(Episode.thumb_rel.is_(None)))).scalars().all()
+    rows = (
+        (await session.execute(select(Episode).where(Episode.thumb_rel.is_(None))))
+        .scalars()
+        .all()
+    )
     for ep in rows:
         total += 1
         rel = ensure_thumbnail(ep.path)

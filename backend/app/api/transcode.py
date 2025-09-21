@@ -2,13 +2,16 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-import os, shlex, subprocess
+import os
+import shlex
+import subprocess
 
 from app.core.db import get_session
 from app.core.models import Episode
 from app.services.compat import is_browser_friendly
 
 router = APIRouter(prefix="/api/transcode", tags=["transcode"])
+
 
 def iter_ffmpeg_stdout(cmd: str, bufsize: int = 1024 * 64):
     """
@@ -31,9 +34,12 @@ def iter_ffmpeg_stdout(cmd: str, bufsize: int = 1024 * 64):
         if proc and proc.poll() is None:
             proc.terminate()
 
+
 @router.get("/mp4/{episode_id}")
 async def transcode_mp4(episode_id: int, session: AsyncSession = Depends(get_session)):
-    ep = (await session.execute(select(Episode).where(Episode.id == episode_id))).scalar_one_or_none()
+    ep = (
+        await session.execute(select(Episode).where(Episode.id == episode_id))
+    ).scalar_one_or_none()
     if not ep:
         raise HTTPException(404, "Episodio no encontrado")
     if not os.path.exists(ep.path):

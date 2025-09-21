@@ -15,26 +15,36 @@ async def list_series(session: AsyncSession = Depends(get_session)):
 
 @router.get("/series/{series_id}")
 async def series_detail(series_id: int, session: AsyncSession = Depends(get_session)):
-    s = (await session.execute(select(Series).where(Series.id == series_id))).scalar_one_or_none()
+    s = (
+        await session.execute(select(Series).where(Series.id == series_id))
+    ).scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Serie no encontrada")
 
     seas = (
-        await session.execute(
-            select(Season).where(Season.series_id == s.id).order_by(Season.number)
+        (
+            await session.execute(
+                select(Season).where(Season.series_id == s.id).order_by(Season.number)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     out = {"id": s.id, "name": s.name, "seasons": []}
 
     for sea in seas:
         eps = (
-            await session.execute(
-                select(Episode)
-                .where(Episode.season_id == sea.id)
-                .order_by(Episode.number.is_(None), Episode.number, Episode.title)
+            (
+                await session.execute(
+                    select(Episode)
+                    .where(Episode.season_id == sea.id)
+                    .order_by(Episode.number.is_(None), Episode.number, Episode.title)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
         out["seasons"].append(
             {
@@ -64,15 +74,22 @@ async def search_series(
     session: AsyncSession = Depends(get_session),
 ):
     rows = (
-        await session.execute(
-            select(Series).where(Series.name.ilike(f"%{q}%")).order_by(Series.name)
+        (
+            await session.execute(
+                select(Series).where(Series.name.ilike(f"%{q}%")).order_by(Series.name)
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     return [{"id": s.id, "name": s.name} for s in rows]
+
 
 @router.get("/series/{series_id}/cover")
 async def series_cover(series_id: int, session: AsyncSession = Depends(get_session)):
-    s = (await session.execute(select(Series).where(Series.id == series_id))).scalar_one_or_none()
+    s = (
+        await session.execute(select(Series).where(Series.id == series_id))
+    ).scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Serie no encontrada")
     if s.poster_rel:
@@ -83,13 +100,16 @@ async def series_cover(series_id: int, session: AsyncSession = Depends(get_sessi
             select(Episode.thumb_rel)
             .join(Season, Episode.season_id == Season.id)
             .where(Season.series_id == series_id, Episode.thumb_rel.is_not(None))
-            .order_by(Season.number, Episode.number.is_(None), Episode.number, Episode.title)
+            .order_by(
+                Season.number, Episode.number.is_(None), Episode.number, Episode.title
+            )
             .limit(1)
         )
     ).first()
     if row:
         return {"cover": row[0], "source": "thumb"}
     return {"cover": None, "source": None}
+
 
 @router.get("/series/{series_id}/thumb")
 async def series_thumb(series_id: int, session: AsyncSession = Depends(get_session)):
@@ -99,7 +119,9 @@ async def series_thumb(series_id: int, session: AsyncSession = Depends(get_sessi
             select(Episode.thumb_rel)
             .join(Season, Episode.season_id == Season.id)
             .where(Season.series_id == series_id, Episode.thumb_rel.is_not(None))
-            .order_by(Season.number, Episode.number.is_(None), Episode.number, Episode.title)
+            .order_by(
+                Season.number, Episode.number.is_(None), Episode.number, Episode.title
+            )
             .limit(1)
         )
     ).first()

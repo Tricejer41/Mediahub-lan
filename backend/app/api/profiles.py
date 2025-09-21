@@ -38,7 +38,11 @@ class AvatarIn(BaseModel):
 async def list_avatars():
     """Lista de avatares disponibles en media/avatars (png/jpg/webp/svg)."""
     exts = {".png", ".jpg", ".jpeg", ".webp", ".svg"}
-    files = [f.name for f in AVATARS_DIR.glob("*") if f.is_file() and f.suffix.lower() in exts]
+    files = [
+        f.name
+        for f in AVATARS_DIR.glob("*")
+        if f.is_file() and f.suffix.lower() in exts
+    ]
     files.sort()
     return [{"id": name, "url": f"/static/avatars/{name}"} for name in files]
 
@@ -47,16 +51,23 @@ async def list_avatars():
 @router.get("", response_model=list[ProfileOut])
 async def list_profiles(session: AsyncSession = Depends(get_session)):
     rows = (await session.execute(select(Profile).order_by(Profile.id))).scalars().all()
-    return [{"id": p.id, "name": p.name, "avatar": p.avatar, "is_kid": p.is_kid} for p in rows]
+    return [
+        {"id": p.id, "name": p.name, "avatar": p.avatar, "is_kid": p.is_kid}
+        for p in rows
+    ]
 
 
 @router.post("", response_model=ProfileOut, status_code=201)
 async def create_profile(data: ProfileIn, session: AsyncSession = Depends(get_session)):
-    count = (await session.execute(select(func.count()).select_from(Profile))).scalar_one()
+    count = (
+        await session.execute(select(func.count()).select_from(Profile))
+    ).scalar_one()
     if count >= MAX_PROFILES:
         raise HTTPException(400, f"Se alcanzó el máximo de perfiles ({MAX_PROFILES}).")
 
-    exists = (await session.execute(select(Profile).where(Profile.name == data.name))).scalar_one_or_none()
+    exists = (
+        await session.execute(select(Profile).where(Profile.name == data.name))
+    ).scalar_one_or_none()
     if exists:
         raise HTTPException(400, "Ya existe un perfil con ese nombre.")
 
@@ -68,15 +79,21 @@ async def create_profile(data: ProfileIn, session: AsyncSession = Depends(get_se
 
 @router.get("/{profile_id}")
 async def get_profile(profile_id: int, session: AsyncSession = Depends(get_session)):
-    p = (await session.execute(select(Profile).where(Profile.id == profile_id))).scalar_one_or_none()
+    p = (
+        await session.execute(select(Profile).where(Profile.id == profile_id))
+    ).scalar_one_or_none()
     if not p:
         raise HTTPException(404, "Perfil no encontrado.")
     return {"id": p.id, "name": p.name, "avatar": p.avatar, "is_kid": p.is_kid}
 
 
 @router.patch("/{profile_id}/avatar")
-async def set_avatar(profile_id: int, data: AvatarIn, session: AsyncSession = Depends(get_session)):
-    p = (await session.execute(select(Profile).where(Profile.id == profile_id))).scalar_one_or_none()
+async def set_avatar(
+    profile_id: int, data: AvatarIn, session: AsyncSession = Depends(get_session)
+):
+    p = (
+        await session.execute(select(Profile).where(Profile.id == profile_id))
+    ).scalar_one_or_none()
     if not p:
         raise HTTPException(404, "Perfil no encontrado.")
 
@@ -93,7 +110,9 @@ async def set_avatar(profile_id: int, data: AvatarIn, session: AsyncSession = De
 
 @router.delete("/{profile_id}", status_code=200)
 async def delete_profile(profile_id: int, session: AsyncSession = Depends(get_session)):
-    p = (await session.execute(select(Profile).where(Profile.id == profile_id))).scalar_one_or_none()
+    p = (
+        await session.execute(select(Profile).where(Profile.id == profile_id))
+    ).scalar_one_or_none()
     if not p:
         raise HTTPException(404, "Perfil no encontrado.")
     await session.delete(p)

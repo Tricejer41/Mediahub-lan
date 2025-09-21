@@ -1,4 +1,6 @@
-import os, re, hashlib, requests
+import os
+import re
+import requests
 from pathlib import Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -10,10 +12,12 @@ from app.core.models import Series
 POSTERS_DIR = Path("media/posters")
 POSTERS_DIR.mkdir(parents=True, exist_ok=True)
 
+
 def _slugify(name: str) -> str:
     s = re.sub(r"[^\w\s-]", "", name, flags=re.U)
     s = re.sub(r"\s+", "-", s.strip(), flags=re.U)
     return s.lower()
+
 
 def _save_image(url: str, basename: str) -> Optional[str]:
     try:
@@ -27,6 +31,7 @@ def _save_image(url: str, basename: str) -> Optional[str]:
         return out_rel
     except Exception:
         return None
+
 
 def _tmdb_search_and_download(title: str) -> Optional[str]:
     api_key = os.getenv("TMDB_API_KEY") or getattr(settings, "TMDB_API_KEY", None)
@@ -42,7 +47,9 @@ def _tmdb_search_and_download(title: str) -> Optional[str]:
         if not results:
             # 2) Probar como película
             url = "https://api.themoviedb.org/3/search/movie"
-            r = requests.get(url, params={"api_key": api_key, "query": title}, timeout=15)
+            r = requests.get(
+                url, params={"api_key": api_key, "query": title}, timeout=15
+            )
             r.raise_for_status()
             data = r.json()
             results = data.get("results") or []
@@ -60,6 +67,7 @@ def _tmdb_search_and_download(title: str) -> Optional[str]:
     except Exception:
         return None
 
+
 def _anilist_search_and_download(title: str) -> Optional[str]:
     # GraphQL público, no requiere clave
     query = """
@@ -69,21 +77,28 @@ def _anilist_search_and_download(title: str) -> Optional[str]:
       }
     }"""
     try:
-        r = requests.post("https://graphql.anilist.co",
-                          json={"query": query, "variables": {"search": title}},
-                          timeout=15)
+        r = requests.post(
+            "https://graphql.anilist.co",
+            json={"query": query, "variables": {"search": title}},
+            timeout=15,
+        )
         r.raise_for_status()
         data = r.json()
         media = data.get("data", {}).get("Media")
         if not media:
             return None
-        img = media.get("coverImage", {}).get("extraLarge") or media.get("coverImage", {}).get("large")
+        img = media.get("coverImage", {}).get("extraLarge") or media.get(
+            "coverImage", {}
+        ).get("large")
         return img
     except Exception:
         return None
 
+
 async def fetch_poster_for_series(session: AsyncSession, series_id: int) -> dict:
-    s = (await session.execute(select(Series).where(Series.id == series_id))).scalar_one_or_none()
+    s = (
+        await session.execute(select(Series).where(Series.id == series_id))
+    ).scalar_one_or_none()
     if not s:
         return {"ok": False, "error": "Serie no existe"}
 
@@ -106,8 +121,13 @@ async def fetch_poster_for_series(session: AsyncSession, series_id: int) -> dict
     await session.commit()
     return {"ok": True, "poster": rel, "cached": False}
 
+
 async def fetch_all_missing_posters(session: AsyncSession) -> dict:
-    rows = (await session.execute(select(Series).where(Series.poster_rel.is_(None)))).scalars().all()
+    rows = (
+        (await session.execute(select(Series).where(Series.poster_rel.is_(None))))
+        .scalars()
+        .all()
+    )
     total = len(rows)
     created = 0
     for s in rows:

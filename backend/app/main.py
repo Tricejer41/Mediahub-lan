@@ -16,15 +16,19 @@ app = FastAPI(title="MediaHub LAN (Anime only)")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://192.168.1.25:3000"],
-    allow_credentials=True, allow_methods=["*"], allow_headers=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Monta ficheros estáticos: /static -> backend/media/
 app.mount("/static", StaticFiles(directory="media"), name="static")  # <--- nuevo
 
+
 @app.get("/health")
 def health():
     return {"ok": True}
+
 
 app.include_router(scan_router)
 app.include_router(catalog_router)

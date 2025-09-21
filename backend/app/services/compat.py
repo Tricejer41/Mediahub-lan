@@ -1,6 +1,9 @@
 from typing import Optional
 
-def is_browser_friendly(vcodec: Optional[str], acodec: Optional[str], path: str) -> bool:
+
+def is_browser_friendly(
+    vcodec: Optional[str], acodec: Optional[str], path: str
+) -> bool:
     """
     Heurística simple: navegadores reproducen bien MP4 con H.264 + AAC/MP3.
     Contenedores MKV o HEVC (h265) suelen fallar.

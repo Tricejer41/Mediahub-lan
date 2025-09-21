@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 
+
 class Settings(BaseSettings):
     MEDIA_SERIES: str = "/mnt/wd/Anime"
     MEDIA_MOVIES: str = ""
@@ -11,5 +12,6 @@ class Settings(BaseSettings):
     class Config:
         # .env está en la RAÍZ del repo, dos niveles arriba de este archivo
         env_file = "../../.env"
+
 
 settings = Settings()
