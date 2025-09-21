@@ -1,6 +1,9 @@
 from sqlalchemy import String, Integer, ForeignKey, UniqueConstraint, BigInteger, Float
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.db import Base
+from sqlalchemy import Integer, String, ForeignKey, UniqueConstraint, Float, Boolean
+from datetime import datetime
+from sqlalchemy import DateTime
 
 class Series(Base):
     __tablename__ = "series"
@@ -36,3 +39,23 @@ class Episode(Base):
     thumb_rel: Mapped[str | None] = mapped_column(String(255), nullable=True)  # <--- nuevo
     
     season: Mapped["Season"] = relationship(back_populates="episodes")
+
+class Profile(Base):
+    __tablename__ = "profiles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)  # "kids", "red", etc.
+    is_kid: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+class WatchProgress(Base):
+    __tablename__ = "watch_progress"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    profile_id: Mapped[int] = mapped_column(ForeignKey("profiles.id", ondelete="CASCADE"), index=True)
+    episode_id: Mapped[int] = mapped_column(ForeignKey("episodes.id", ondelete="CASCADE"), index=True)
+    position_sec: Mapped[float] = mapped_column(Float, default=0)   # última posición
+    duration_sec: Mapped[float | None] = mapped_column(Float, nullable=True)
+    completed: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (UniqueConstraint("profile_id", "episode_id", name="uq_progress_profile_episode"),)
