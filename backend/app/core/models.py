@@ -9,7 +9,7 @@ class Series(Base):
     __tablename__ = "series"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-
+    poster_rel: Mapped[str | None] = mapped_column(String(255), nullable=True)
     seasons: Mapped[list["Season"]] = relationship(back_populates="series", cascade="all,delete-orphan")
 
 class Season(Base):

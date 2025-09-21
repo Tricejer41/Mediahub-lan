@@ -17,27 +17,6 @@ async function fetchSeries(q?: string): Promise<Serie[]> {
   return res.json()
 }
 
-// ---- Server component para la miniatura de cada serie ----
-async function SeriesThumbCard({ id }: { id: number }) {
-  const base = apiBase()
-  const r = await fetch(`${base}/api/catalog/series/${id}/thumb`, { cache: "no-store" })
-  const data = await r.json().catch(() => null as any)
-  const src = data?.thumb ? `${base}/static/${data.thumb}` : null
-
-  return (
-    <div className="aspect-video w-full rounded-xl overflow-hidden bg-neutral-800/60 mb-3 group-hover:bg-neutral-700/60 transition">
-      {src ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt="" className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full grid place-items-center text-sm opacity-60">
-          Sin imagen
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ---- Formulario de búsqueda (acción nativa) ----
 function SearchForm({ q }: { q?: string }) {
   return (
@@ -58,6 +37,33 @@ function SearchForm({ q }: { q?: string }) {
         </a>
       ) : null}
     </form>
+  )
+}
+
+// ---- Card de portada (cover: poster si hay, thumb si no, placeholder si nada) ----
+async function SeriesCoverCard({ id }: { id: number }) {
+  const base = apiBase()
+  const r = await fetch(`${base}/api/catalog/series/${id}/cover`, { cache: "no-store" })
+  const d = await r.json().catch(() => ({} as any))
+  const src = d?.cover ? `${base}/static/${d.cover}` : null
+
+  return (
+    <div className="aspect-video w-full rounded-xl overflow-hidden bg-neutral-800/60 mb-3 group-hover:bg-neutral-700/60 transition">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          className="w-full h-full object-cover object-center"
+          loading="lazy"
+          decoding="async"
+        />
+      ) : (
+        <div className="w-full h-full grid place-items-center text-sm opacity-60">
+          Sin imagen
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -83,7 +89,7 @@ export default async function Home({
             >
               Re-escanear
             </Link>
-<ProfileBadgeServer />
+            <ProfileBadgeServer />
           </div>
         </header>
 
@@ -94,7 +100,7 @@ export default async function Home({
               href={`/series/${s.id}`}
               className="group rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3 hover:border-neutral-600 transition"
             >
-              <SeriesThumbCard id={s.id} />
+              <SeriesCoverCard id={s.id} />
               <div className="font-medium truncate">{s.name}</div>
               <div className="text-xs opacity-60">Ver temporadas</div>
             </Link>

@@ -70,6 +70,26 @@ async def search_series(
     ).scalars().all()
     return [{"id": s.id, "name": s.name} for s in rows]
 
+@router.get("/series/{series_id}/cover")
+async def series_cover(series_id: int, session: AsyncSession = Depends(get_session)):
+    s = (await session.execute(select(Series).where(Series.id == series_id))).scalar_one_or_none()
+    if not s:
+        raise HTTPException(404, "Serie no encontrada")
+    if s.poster_rel:
+        return {"cover": s.poster_rel, "source": "poster"}
+    # fallback: usar la miniatura representativa existente
+    row = (
+        await session.execute(
+            select(Episode.thumb_rel)
+            .join(Season, Episode.season_id == Season.id)
+            .where(Season.series_id == series_id, Episode.thumb_rel.is_not(None))
+            .order_by(Season.number, Episode.number.is_(None), Episode.number, Episode.title)
+            .limit(1)
+        )
+    ).first()
+    if row:
+        return {"cover": row[0], "source": "thumb"}
+    return {"cover": None, "source": None}
 
 @router.get("/series/{series_id}/thumb")
 async def series_thumb(series_id: int, session: AsyncSession = Depends(get_session)):
