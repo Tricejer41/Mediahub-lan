@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
-import ProfileBadge from "@/components/ProfileBadge"
+import ProfileBadgeClient from "@/components/ProfileBadgeClient"
 
 export default function WatchPage({ params }: { params: Promise<{ id: string }> }) {
   const [id, setId] = useState<string>("")
@@ -89,7 +89,7 @@ export default function WatchPage({ params }: { params: Promise<{ id: string }> 
 <div className="flex items-center justify-between">
   <h1 className="text-xl font-semibold">Reproducción</h1>
   <div className="flex items-center gap-3">
-    <ProfileBadge />
+<ProfileBadgeClient />
     <Link href="/" className="text-sm opacity-70 hover:opacity-100">← Biblioteca</Link>
   </div>
 </div>

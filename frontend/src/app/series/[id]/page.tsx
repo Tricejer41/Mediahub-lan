@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { cookies } from "next/headers"
 import { apiBase } from "@/lib/api"
-import ProfileBadge from "@/components/ProfileBadge"
+import ProfileBadgeServer from "@/components/ProfileBadgeServer"
 
 type Episode = {
   id: number
@@ -49,7 +49,7 @@ const pid = jar.get("profile_id")?.value ?? null
 <div className="mb-6 flex items-center justify-between">
   <h1 className="text-xl md:text-2xl font-bold">{data.name}</h1>
   <div className="flex items-center gap-3">
-    <ProfileBadge />
+<ProfileBadgeServer />
     <Link href="/" className="text-sm opacity-70 hover:opacity-100">← Volver</Link>
   </div>
 </div>

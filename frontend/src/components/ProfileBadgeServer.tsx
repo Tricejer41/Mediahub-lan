@@ -2,9 +2,8 @@ import { cookies } from "next/headers"
 import Link from "next/link"
 import { apiBase } from "@/lib/api"
 
-export default async function ProfileBadge() {
-  // 👇 Next 15: cookies() es asíncrono
-  const jar = await cookies();
+export default async function ProfileBadgeServer() {
+  const jar = await cookies();                      // <- await obligatorio
   const pid = jar.get("profile_id")?.value
 
   if (!pid) {

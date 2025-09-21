@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { apiBase } from "@/lib/api"
-import ProfileBadge from "@/components/ProfileBadge"
+import ProfileBadgeServer from "@/components/ProfileBadgeServer"
 
 // ---- Tipos ----
 type Serie = { id: number; name: string }
@@ -83,7 +83,7 @@ export default async function Home({
             >
               Re-escanear
             </Link>
-    	    <ProfileBadge />
+<ProfileBadgeServer />
           </div>
         </header>
 
