@@ -1,0 +1,56 @@
+# deploy/docker-compose.yml
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: mediahub-backend
+    environment:
+      # Ruta del root media dentro del contenedor (no cambies)
+      MEDIA_ROOT: /app/media
+      # (Opcional) otras variables que uses en tu app
+    volumes:
+      # 1) Base de datos SQLite persistente en host
+      - ../backend/mediahub.db:/app/mediahub.db
+      # 2) Directorio media (posters/thumbs/avatars) persistente
+      - ../backend/media:/app/media
+      # 3) Tu biblioteca montada en modo solo lectura
+      - /mnt/wd/Anime:/mnt/wd/Anime:ro
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        # IMPORTANTE: URL pública del backend a la que llamará el FE
+        NEXT_PUBLIC_API_BASE: "/api"
+    container_name: mediahub-frontend
+    depends_on:
+      - backend
+    environment:
+      # (En Next.js 15, las NEXT_PUBLIC_* se usan en build;
+      # mantener aquí por claridad para futuras integraciones)
+      NEXT_PUBLIC_API_BASE: "/api"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: mediahub-nginx
+    depends_on:
+      - backend
+      - frontend
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    restart: unless-stopped
