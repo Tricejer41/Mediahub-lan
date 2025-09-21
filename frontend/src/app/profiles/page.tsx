@@ -1,14 +1,16 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import AvatarPicker from "@/components/AvatarPicker"
 
-type Profile = { id:number; name:string; avatar?:string|null; is_kid:boolean }
+type Profile = { id: number; name: string; avatar?: string | null; is_kid: boolean }
 
 export default function ProfilesPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [name, setName] = useState("")
   const [isKid, setIsKid] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pickerFor, setPickerFor] = useState<number | null>(null)
   const MAX = 4
 
   const BASE = process.env.NEXT_PUBLIC_API_BASE!.replace(/\/$/, "")
@@ -17,10 +19,14 @@ export default function ProfilesPage() {
     const r = await fetch(`${BASE}/api/profiles`, { cache: "no-store" })
     setProfiles(await r.json())
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, []) // cargar al entrar
 
   const select = async (id: number) => {
-    await fetch("/api/profile/select", { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ profile_id: id }) })
+    await fetch("/api/profile/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profile_id: id }),
+    })
     window.location.href = "/"
   }
 
@@ -28,8 +34,9 @@ export default function ProfilesPage() {
     e.preventDefault(); setError(null)
     if (!name.trim()) return
     const r = await fetch(`${BASE}/api/profiles`, {
-      method:"POST", headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ name, is_kid: isKid })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, is_kid: isKid }),
     })
     if (!r.ok) {
       const d = await r.json().catch(() => ({}))
@@ -39,9 +46,9 @@ export default function ProfilesPage() {
     }
   }
 
-  const del = async (id:number) => {
+  const del = async (id: number) => {
     if (!confirm("¿Eliminar perfil? Se perderá su progreso.")) return
-    await fetch(`${BASE}/api/profiles/${id}`, { method:"DELETE" })
+    await fetch(`${BASE}/api/profiles/${id}`, { method: "DELETE" })
     load()
   }
 
@@ -50,24 +57,58 @@ export default function ProfilesPage() {
       <div className="mx-auto max-w-3xl">
         <h1 className="text-3xl font-bold text-center mb-8">¿Quién está viendo?</h1>
 
+        {/* Tarjetas de perfiles */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6 justify-items-center mb-10">
-          {profiles.map(p => (
-            <button key={p.id} onClick={() => select(p.id)} className="group text-center">
-              <div className="w-28 h-28 rounded-lg bg-neutral-800 group-hover:bg-neutral-700 grid place-items-center text-3xl">
-                {/* Avatar simple por ahora */}
-                {p.is_kid ? "🧒" : "🙂"}
+          {profiles.map((p) => (
+            <div key={p.id} className="group text-center">
+              {/* Al hacer click en la tarjeta, selecciona el perfil */}
+              <button onClick={() => select(p.id)} className="block">
+                <div className="w-28 h-28 rounded-lg overflow-hidden bg-neutral-800 group-hover:bg-neutral-700 grid place-items-center">
+                  {p.avatar ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`${BASE}/static/avatars/${p.avatar}`}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl">{p.is_kid ? "🧒" : "🙂"}</span>
+                  )}
+                </div>
+                <div className="mt-2">{p.name}</div>
+              </button>
+
+              {/* Acciones debajo de cada tarjeta */}
+              <div className="mt-2 flex items-center justify-center gap-2">
+                <button
+                  onClick={() => setPickerFor(p.id)}
+                  className="text-xs rounded px-2 py-1 bg-neutral-800 hover:bg-neutral-700"
+                >
+                  Elegir avatar
+                </button>
+                <button
+                  onClick={() => del(p.id)}
+                  className="text-xs rounded px-2 py-1 bg-neutral-900 hover:bg-neutral-800"
+                >
+                  Eliminar
+                </button>
               </div>
-              <div className="mt-2">{p.name}</div>
-            </button>
+            </div>
           ))}
 
+          {/* Añadir perfil (si no se alcanzó el máximo) */}
           {profiles.length < MAX && (
             <details className="col-span-2 md:col-span-1">
               <summary className="cursor-pointer opacity-80 hover:opacity-100">➕ Añadir perfil</summary>
               <form onSubmit={add} className="mt-3 space-y-2">
-                <input className="w-full rounded-lg px-3 py-2 bg-neutral-900 border border-neutral-800" placeholder="Nombre" value={name} onChange={e=>setName(e.target.value)} />
+                <input
+                  className="w-full rounded-lg px-3 py-2 bg-neutral-900 border border-neutral-800"
+                  placeholder="Nombre"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
                 <label className="flex items-center gap-2 text-sm opacity-80">
-                  <input type="checkbox" checked={isKid} onChange={e=>setIsKid(e.target.checked)} /> Perfil infantil
+                  <input type="checkbox" checked={isKid} onChange={(e) => setIsKid(e.target.checked)} /> Perfil infantil
                 </label>
                 {error && <div className="text-sm text-red-400">{error}</div>}
                 <button className="rounded-lg px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700">Crear</button>
@@ -76,10 +117,11 @@ export default function ProfilesPage() {
           )}
         </div>
 
+        {/* Limpiar selección de perfil actual (opcional) */}
         {profiles.length > 0 && (
           <div className="flex justify-center">
             <button
-              onClick={() => fetch("/api/profile/clear", { method:"POST" }).then(()=>location.reload())}
+              onClick={() => fetch("/api/profile/clear", { method: "POST" }).then(() => location.reload())}
               className="text-sm opacity-70 hover:opacity-100"
             >
               Gestionar (eliminar perfiles)
@@ -87,17 +129,14 @@ export default function ProfilesPage() {
           </div>
         )}
 
-        {/* Gestión sencilla: listar y permitir borrar */}
-        {profiles.length > 0 && (
-          <div className="mt-6 grid gap-2">
-            {profiles.map(p => (
-              <div key={p.id} className="flex items-center gap-3 text-sm opacity-80">
-                <span className="w-8 h-8 rounded bg-neutral-800 grid place-items-center">{p.is_kid ? "🧒" : "🙂"}</span>
-                <span className="flex-1">{p.name}</span>
-                <button onClick={() => del(p.id)} className="px-2 py-1 rounded bg-neutral-900 hover:bg-neutral-800">Eliminar</button>
-              </div>
-            ))}
-          </div>
+        {/* Picker de avatares (overlay) */}
+        {pickerFor !== null && (
+          <AvatarPicker
+            profileId={pickerFor}
+            baseUrl={BASE}
+            onClose={() => setPickerFor(null)}
+            onPicked={() => { setPickerFor(null); load() }}
+          />
         )}
       </div>
     </main>
