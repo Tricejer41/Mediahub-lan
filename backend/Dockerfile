@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY app /app/app
 COPY alembic /app/alembic
 COPY alembic.ini /app/alembic.ini
+COPY media/avatars /app/assets/avatars
 
 # carpeta media (thumbnails/posters/avatars); será montada como volumen
 RUN mkdir -p /app/media/avatars /app/media/posters /app/media/thumbs
