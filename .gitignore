@@ -10,3 +10,6 @@ backend/.venv/
 frontend/.next/
 frontend/.turbo/
 backend/mediahub.db
+tv-app/tv_app/node_modules
+tv-app/tv_app/android/build
+tv-app/tv_app/.gradle
