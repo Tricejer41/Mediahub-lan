@@ -6,14 +6,10 @@ on:
     branches: [ dev, main ]
     paths:
       - 'tv-app/**'
-      - '.github/workflows/android-debug.yml'
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    env:
-      CI: "true"
-      GRADLE_USER_HOME: ${{ github.workspace }}/.gradle
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,41 +24,25 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: Install required SDK packages
+      - name: Install Android SDK 35
         run: |
-          sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           yes | sdkmanager --licenses
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" "cmdline-tools;latest"
 
-      - name: NPM install (tv_app)
-        working-directory: tv-app/tv_app
-        run: npm ci --no-audit --no-fund
+      - name: Cache Gradle
+        uses: gradle/gradle-build-action@v2
 
-      - name: Make gradlew executable
+      - name: Build Debug APK
         working-directory: tv-app/tv_app/android
-        run: chmod +x gradlew
+        run: ./gradlew :app:assembleDebug
 
-      # 👉 Ejecutamos gradle dentro de tv_app/android (no en tv_app)
-      - name: Build Debug (verbose, no-daemon)
-        working-directory: tv-app/tv_app/android
-        run: ./gradlew clean :app:assembleDebug --no-daemon --stacktrace --info
-
-      - name: Upload APK (debug)
-        if: always()
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: tv-app/tv_app/android/app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Upload Gradle logs (si falla)
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gradle-logs
-          path: |
-            ${{ env.GRADLE_USER_HOME }}/daemon/**/daemon-*.log
-            tv-app/tv_app/android/**/reports/*
-            tv-app/tv_app/android/**/outputs/logs/*
+          name: tv-app-debug-apk
+          path: tv-app/tv_app/android/app/build/outputs/apk/debug/*.apk
