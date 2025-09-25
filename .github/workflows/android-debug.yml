@@ -6,7 +6,7 @@ on:
     branches: [ dev, main ]
     paths:
       - 'tv-app/**'
-
+      - '.github/workflows/android-debug.yml'
 jobs:
   build-android:
     runs-on: ubuntu-latest
