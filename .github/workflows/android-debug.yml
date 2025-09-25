@@ -19,6 +19,30 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: tv-app/tv_app/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('tv-app/tv_app/package-lock.json', 'tv-app/tv_app/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install JS deps
+        working-directory: tv-app/tv_app
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          elif [ -f yarn.lock ]; then
+            corepack enable
+            yarn install --frozen-lockfile
+          else
+            npm install
+          fi
+
+      - name: (debug) RN Android CLI path
+        working-directory: tv-app/tv_app
+        run: node -e "console.log(require.resolve('@react-native-community/cli-platform-android/package.json'))"
+
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -34,8 +58,9 @@ jobs:
           yes | sdkmanager --licenses
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" "platform-tools" "cmdline-tools;latest"
 
-      - name: Cache Gradle
-        uses: gradle/gradle-build-action@v2
+      - name: Make gradlew executable
+        working-directory: tv-app/tv_app/android
+        run: chmod +x gradlew
 
       - name: Build Debug APK
         working-directory: tv-app/tv_app/android
