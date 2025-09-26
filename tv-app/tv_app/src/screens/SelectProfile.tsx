@@ -1,3 +1,4 @@
+import { resolveAvatar, AVATAR_IDS } from "../lib/avatars";
 import React, { useEffect, useState } from "react";
 import { View, Text, Image, StyleSheet, FlatList, TextInput } from "react-native";
 import Focusable from "../components/Focusable";
@@ -49,7 +50,7 @@ export default function SelectProfile({ navigation }: Props) {
         keyExtractor={(p) => String(p.id)}
         renderItem={({ item }) => (
           <Focusable style={styles.profileCard} onPress={() => go(item)}>
-            <Image source={{ uri: item.avatar }} style={styles.avatar} />
+<Image source={resolveAvatar(item.avatar)} style={styles.avatar} />
             <Text style={styles.profileName} numberOfLines={1}>{item.name}</Text>
           </Focusable>
         )}
@@ -85,7 +86,7 @@ export default function SelectProfile({ navigation }: Props) {
               ]}
               onPress={() => setSelectedAvatar(item)}
             >
-              <Image source={{ uri: item }} style={styles.avatarPickImg} />
+<Image source={resolveAvatar(item)} style={styles.avatarPickImg} />
             </Focusable>
           )}
           showsHorizontalScrollIndicator={false}
