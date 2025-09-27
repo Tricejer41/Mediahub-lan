@@ -1,37 +1,44 @@
-// tv-app/tv_app/src/lib/api.ts
-import { BASE_URL } from "../config/baseUrl"; // OJO: confyg, no config
-import type { TitleSummary } from "./types";
+import { BASE_URL } from "../config/baseUrl";
+import type { Profile, TitleSummary } from "./types";
 
-export type Profile = {
-  id: number;
-  name: string;
-  avatar: string;
-  is_kid: boolean;
-};
-
-async function jsonFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url);
-  if (!res.ok) {
-    // Deja que el caller maneje el catch()
-    throw new Error(`HTTP ${res.status}`);
-  }
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json() as Promise<T>;
 }
 
 export const Api = {
-  // <- La función que te falta
-  getProfiles(): Promise<Profile[]> {
-    return jsonFetch<Profile[]>(`${BASE_URL}/api/profiles`);
-  },
+  // Perfiles
+  getProfiles: (): Promise<Profile[]> => api("/api/profiles"),
 
-  // Mantengo los nombres que ya usa tu Home.tsx
-  listHome(): Promise<{ rows: { label: string; items: TitleSummary[] }[] }> {
-    return jsonFetch(`${BASE_URL}/api/home`);
-  },
-
-  listContinueWatching(profileId: number | string): Promise<TitleSummary[]> {
-    return jsonFetch(
-      `${BASE_URL}/api/continue-watching?profileId=${profileId}`
+  // Catálogo: series (mapeamos a TitleSummary y añadimos la URL del thumb)
+  listSeries: async (): Promise<TitleSummary[]> => {
+    const series: { id: string | number; name: string }[] = await api(
+      "/api/catalog/series"
     );
+    return series.map((s) => ({
+      id: String(s.id),
+      name: s.name,
+      poster: `${BASE_URL}/api/catalog/series/${s.id}/thumb`,
+    }));
   },
+
+  // Detalle de serie
+  getDetails: (id: string) =>
+    api(`/api/catalog/series/${id}`) as Promise<{
+      id: string;
+      name: string;
+      synopsis?: string;
+      seasons?: { number: number; episodes: { id: string; name: string }[] }[];
+      poster?: string;
+    }>,
+
+  // URL de reproducción (stream directo con Range)
+  hlsUrl: (sourceId: string): string => `${BASE_URL}/api/stream/${sourceId}`,
 };
