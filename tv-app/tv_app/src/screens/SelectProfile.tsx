@@ -1,117 +1,134 @@
-import { resolveAvatar, AVATAR_IDS } from "../lib/avatars";
-import React, { useEffect, useState } from "react";
-import { View, Text, Image, StyleSheet, FlatList, TextInput } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, Image, StyleSheet, FlatList, ActivityIndicator } from "react-native";
 import Focusable from "../components/Focusable";
 import { Api } from "../lib/api";
-import type { Profile } from "../lib/types";
-import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../navigation";
+import { Profile } from "../lib/types";
+import { resolveAvatar } from "../lib/avatars";
+import { useNavigation } from "@react-navigation/native";
 
-type Props = NativeStackScreenProps<RootStackParamList, "SelectProfile">;
+type Item = { kind: "add" } | (Profile & { kind: "profile" });
 
-export default function SelectProfile({ navigation }: Props) {
+export default function SelectProfile() {
+  const nav = useNavigation<any>();
   const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [name, setName] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
-  const [avatars, setAvatars] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Api.listProfiles().then(setProfiles).catch(console.warn);
-    // Avatares: usamos estáticos servidos por backend (/static/avatars)
-    // Si tienes endpoint para listarlos, cámbialo; sino, carga una lista fija o
-    // infiérela desde tus nombres:
-    const preset = [
-      "/static/avatars/1.png",
-      "/static/avatars/2.png",
-      "/static/avatars/3.png",
-      "/static/avatars/4.png",
-    ];
-    setAvatars(preset);
+    let mounted = true;
+    Api.getProfiles()
+      .then((p) => mounted && setProfiles(p))
+      .catch((e) => console.error("getProfiles()", e))
+      .finally(() => mounted && setLoading(false));
+    return () => { mounted = false; };
   }, []);
 
-  const go = (profile: Profile) => navigation.replace("Home", { profile: { id: profile.id, name: profile.name } });
+  const data: Item[] = useMemo(() => {
+    const items: Item[] = profiles.map((p) => ({ ...p, kind: "profile" as const }));
+    if (profiles.length < 4) items.push({ kind: "add" });
+    return items;
+  }, [profiles]);
 
-  const create = async () => {
-    if (!name || !selectedAvatar) return;
-    const p = await Api.createProfile(name, selectedAvatar);
-    setProfiles((prev) => [...prev, p]);
-    setName("");
-    setSelectedAvatar(null);
+  const renderItem = ({ item, index }: { item: Item; index: number }) => {
+    const isAdd = item.kind === "add";
+    const onPress = () => {
+      if (isAdd) nav.navigate("CreateProfile");
+      else nav.navigate("Home", { profile: item });
+    };
+    return (
+      <Focusable style={[styles.card, isAdd && styles.addCard]} onPress={onPress} autoFocus={index === 0}>
+        {isAdd ? (
+          <View style={styles.addInner}>
+            <Text style={styles.plus}>＋</Text>
+            <Text style={styles.addText}>Añadir perfil</Text>
+          </View>
+        ) : (
+          <>
+            <Image source={resolveAvatar(item.avatar)} style={styles.avatar} resizeMode="cover" />
+            <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
+          </>
+        )}
+      </Focusable>
+    );
   };
 
   return (
     <View style={styles.root}>
-      <Text style={styles.h1}>¿Quién está viendo?</Text>
+      <Text style={styles.title}>¿Quién está viendo?</Text>
 
-      <FlatList
-        contentContainerStyle={{ paddingVertical: 12 }}
-        data={profiles}
-        numColumns={4}
-        keyExtractor={(p) => String(p.id)}
-        renderItem={({ item }) => (
-          <Focusable style={styles.profileCard} onPress={() => go(item)}>
-<Image source={resolveAvatar(item.avatar)} style={styles.avatar} />
-            <Text style={styles.profileName} numberOfLines={1}>{item.name}</Text>
-          </Focusable>
-        )}
-      />
-
-      <View style={styles.createBox}>
-        <Text style={styles.h2}>Crear perfil</Text>
-        <View style={styles.row}>
-          <TextInput
-            style={styles.input}
-            placeholder="Nombre"
-            placeholderTextColor="#aaa"
-            value={name}
-            onChangeText={setName}
-          />
-          <Focusable
-            style={[styles.createBtn, !(name && selectedAvatar) && { opacity: 0.5 }]}
-            onPress={create}
-          >
-            <Text style={styles.createText}>Crear</Text>
-          </Focusable>
-        </View>
-        <Text style={styles.h3}>Elige un avatar</Text>
+      {loading ? (
+        <ActivityIndicator size="large" />
+      ) : (
         <FlatList
-          horizontal
-          data={avatars}
-          keyExtractor={(x) => x}
-          renderItem={({ item }) => (
-            <Focusable
-              style={[
-                styles.avatarPick,
-                selectedAvatar === item && { borderColor: "white", borderWidth: 3 },
-              ]}
-              onPress={() => setSelectedAvatar(item)}
-            >
-<Image source={resolveAvatar(item)} style={styles.avatarPickImg} />
-            </Focusable>
-          )}
-          showsHorizontalScrollIndicator={false}
+          data={data}
+          keyExtractor={(it, idx) => (it.kind === "add" ? "add" : String(it.id))}
+          renderItem={renderItem}
+          numColumns={2}
+          columnWrapperStyle={styles.row}
+          contentContainerStyle={styles.grid}
         />
-      </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "black", paddingHorizontal: 24, paddingTop: 48 },
-  h1: { color: "white", fontSize: 36, marginBottom: 16 },
-  h2: { color: "white", fontSize: 24, marginVertical: 8 },
-  h3: { color: "white", fontSize: 18, marginTop: 16, marginBottom: 8 },
-  profileCard: { width: 220, margin: 8, alignItems: "center" },
-  avatar: { width: 160, height: 160, borderRadius: 12, marginBottom: 8 },
-  profileName: { color: "white", fontSize: 18 },
-  createBox: { marginTop: 16 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12 },
-  input: {
-    flex: 1, color: "white", fontSize: 18, padding: 12,
-    borderWidth: 1, borderColor: "#555", borderRadius: 10, backgroundColor: "#1a1a1a"
+  root: {
+    flex: 1,
+    backgroundColor: "#0b0b0b",
+    paddingTop: 40,
+    paddingHorizontal: 60,
   },
-  createBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10 },
-  createText: { color: "white", fontSize: 18 },
-  avatarPick: { width: 120, height: 120, borderRadius: 12, overflow: "hidden", marginRight: 12 },
-  avatarPickImg: { width: "100%", height: "100%" },
+  title: {
+    color: "white",
+    fontSize: 42,
+    fontWeight: "700",
+    marginBottom: 24,
+  },
+  grid: {
+    paddingVertical: 20,
+  },
+  row: {
+    justifyContent: "flex-start",
+  },
+  card: {
+    width: 280,
+    height: 280,
+    marginRight: 32,
+    marginBottom: 32,
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "transparent",
+    backgroundColor: "#1a1a1a",
+  },
+  addCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderStyle: "dashed",
+    borderColor: "#3a3a3a",
+    backgroundColor: "transparent",
+  },
+  avatar: {
+    width: "100%",
+    height: "85%",
+  },
+  name: {
+    color: "white",
+    fontSize: 20,
+    textAlign: "center",
+    paddingTop: 8,
+  },
+  addInner: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  plus: {
+    fontSize: 80,
+    color: "#d1d1d1",
+    marginBottom: 8,
+  },
+  addText: {
+    color: "#d1d1d1",
+    fontSize: 22,
+  },
 });

@@ -16,14 +16,15 @@ export default function Home({ route, navigation }: Props) {
   useEffect(() => {
     Api.listHome()
       .then((data) => setRows(data.rows || []))
-      .catch(() => setRows([]));
+      .catch(() => setRows([])); // si 404/500 -> vacío
 
     Api.listContinueWatching(profile.id)
       .then((items) => setCw({ label: "Seguir viendo", items }))
-      .catch(() => setCw(null)); // si aún no existe en backend, se oculta
+      .catch(() => setCw(null)); // si 404 -> ocultar
   }, [profile.id]);
 
-  const openDetails = (id: string) => navigation.navigate("Details", { id, profileId: profile.id });
+  const openDetails = (id: string) =>
+    navigation.navigate("Details", { id, profileId: profile.id });
 
   return (
     <View style={styles.root}>
